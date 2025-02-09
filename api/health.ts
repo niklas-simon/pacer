@@ -5,10 +5,14 @@ import {
     insertRecords,
 } from 'react-native-health-connect';
 
-const init = async () => {
+const init = async (ignorePermissions?: boolean) => {
     // initialize the client
     console.log("waiting for initialization");
     const isInitialized = await initialize();
+
+    if (ignorePermissions) {
+        return;
+    }
 
     // request permissions
     console.log("waiting for permissions");
@@ -24,8 +28,8 @@ const init = async () => {
     });
 }
 
-export const readSteps = async () => {
-    await init();
+export const readSteps = async (ignorePermissions?: boolean) => {
+    await init(ignorePermissions);
 
     const now = new Date();
     const timeDiff = now.getTime() % (1000 * 60 * 60 * 24);
@@ -34,25 +38,29 @@ export const readSteps = async () => {
     console.log("waiting for results");
     const {records: result} = await readRecords('Steps', {
         timeRangeFilter: {
-          operator: 'between',
-          startTime: today.toISOString(),
-          endTime: now.toISOString(),
+            operator: 'between',
+            startTime: today.toISOString(),
+            endTime: now.toISOString(),
         }
-      });
+    });
 
-    console.log("result: ", result);
     return result;
 };
 
-export const writeSteps = async (from: Date, to: Date, count: number) => {
-    console.log("adding", from.toString(), to.toString(), count);
-    const result = await insertRecords([
-        {
-            recordType: "Steps",
-            startTime: from.toISOString(),
-            endTime: to.toISOString(),
-            count: count
-        }
-    ]);
-    console.log("result", result);
+export interface StepData {
+    from: Date,
+    to: Date,
+    count: number
+}
+
+export const writeSteps = async (steps: StepData[], ignorePermissions?: boolean) => {
+    await init(ignorePermissions);
+
+    console.log("adding", steps.length, "records");
+    await insertRecords(steps.map(record => ({
+        startTime: record.from.toISOString(),
+        endTime: record.from.toISOString(),
+        recordType: "Steps",
+        count: record.count
+    })));
 }
