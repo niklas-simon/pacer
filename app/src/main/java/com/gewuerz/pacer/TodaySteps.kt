@@ -14,7 +14,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -108,12 +113,28 @@ suspend fun getStepsOfToday(client: HealthConnectClient, pref: SharedPreferences
 
 @Composable
 fun TodaySteps(client: HealthConnectClient?, pref: SharedPreferences?, pm: PackageManager?) {
-    val steps = produceState(
-        initialValue = StepsResult()
-    ) {
-        value = if (client != null && pref != null && pm != null) {
-            getStepsOfToday(client, pref, pm)
-        } else StepsResult()
+    var stepStats by remember { mutableStateOf(StepsResult()) }
+
+    LaunchedEffect(client) {
+        if (client != null && pref != null && pm != null) {
+            stepStats = getStepsOfToday(client, pref, pm)
+        }
+    }
+
+    DisposableEffect(pref) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, _ ->
+            if (client != null && pm != null) {
+                suspend {
+                    stepStats = getStepsOfToday(client, prefs, pm)
+                }
+            }
+        }
+
+        pref?.registerOnSharedPreferenceChangeListener(listener)
+
+        onDispose {
+            pref?.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 
     Card (
@@ -128,11 +149,11 @@ fun TodaySteps(client: HealthConnectClient?, pref: SharedPreferences?, pm: Packa
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = nf.format(steps.value.steps),
+                text = nf.format(stepStats.steps),
                 fontSize = 32.sp
             )
             LinearProgressIndicator(
-                progress = { steps.value.steps.toFloat() / 10000 },
+                progress = { stepStats.steps.toFloat() / 10000 },
                 trackColor = MaterialTheme.colorScheme.primaryContainer
             )
         }
@@ -151,7 +172,7 @@ fun TodaySteps(client: HealthConnectClient?, pref: SharedPreferences?, pm: Packa
                 text = "Sources",
                 fontSize = 24.sp
             )
-            if (steps.value.sources.isEmpty()) {
+            if (stepStats.sources.isEmpty()) {
                 Text(
                     text = "no data",
                     textAlign = TextAlign.Center,
@@ -159,7 +180,7 @@ fun TodaySteps(client: HealthConnectClient?, pref: SharedPreferences?, pm: Packa
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            steps.value.sources.map { source ->
+            stepStats.sources.map { source ->
                 SourceRow(source)
             }
         }

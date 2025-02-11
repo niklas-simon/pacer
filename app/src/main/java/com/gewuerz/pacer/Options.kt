@@ -80,12 +80,14 @@ fun OptionsCard(pref: SharedPreferences?) {
                         options = options.copy(target = value)
                         modified = true
                     }
-                }
+                },
+                modifier = Modifier.padding(bottom = 16.dp)
             )
             Text("Active Range")
             Row(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
